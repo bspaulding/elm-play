@@ -17,6 +17,7 @@ type alias Model =
     , loading : Bool
     , error : Maybe Http.Error
     , tiles : List Int
+    , reveal : Bool
     }
 
 
@@ -33,7 +34,7 @@ initialTiles =
 
 
 init =
-    ( Model "coffee" "waiting.gif" True Nothing initialTiles, getImage "coffee" )
+    ( Model "coffee" "waiting.gif" True Nothing initialTiles False, getImage "coffee" )
 
 
 type Msg
@@ -43,6 +44,8 @@ type Msg
     | MoveTile Int
     | ShuffleTiles
     | ShuffledTiles (List Int)
+    | Reveal
+    | UnReveal
 
 
 decodeImageUrl =
@@ -117,6 +120,12 @@ update msg model =
 
         ShuffledTiles tiles ->
             ( { model | tiles = tiles }, Cmd.none )
+
+        Reveal ->
+            ( { model | reveal = True }, Cmd.none )
+
+        UnReveal ->
+            ( { model | reveal = False }, Cmd.none )
 
 
 withMeta html =
@@ -241,16 +250,31 @@ tileImage model t =
 
 
 tileGrid model =
-    Html.Keyed.node "div"
-        [ style
-            [ ( "position", "relative" )
-            , ( "width", "400px" )
-            , ( "height", "400px" )
+    let
+        tiles =
+            if model.reveal then
+                initialTiles
+            else
+                model.tiles
+    in
+        Html.Keyed.node "div"
+            [ style
+                [ ( "position", "relative" )
+                , ( "width", "400px" )
+                , ( "height", "400px" )
+                ]
             ]
-        ]
-    <|
-        List.sortBy Tuple.first <|
-            List.indexedMap (keyedTileCell model) model.tiles
+        <|
+            List.sortBy Tuple.first <|
+                List.indexedMap (keyedTileCell model) tiles
+
+
+onTouchStart message =
+    on "touchstart" <| Decode.succeed message
+
+
+onTouchEnd message =
+    on "touchend" <| Decode.succeed message
 
 
 view model =
@@ -276,6 +300,19 @@ view model =
         , tileGrid model
         , button [ onClick FetchNewImage ] [ text "Next Image" ]
         , button [ onClick ShuffleTiles ] [ text "Shuffle" ]
+        , button
+            [ onMouseDown Reveal
+            , onMouseUp UnReveal
+            , onTouchStart Reveal
+            , onTouchEnd UnReveal
+            , style
+                [ ( "user-select", "none" )
+                , ( "-webkit-user-select", "none" )
+                , ( "-moz-user-select", "none" )
+                , ( "-ms-user-select", "none" )
+                ]
+            ]
+            [ text "Reveal" ]
         ]
         |> withMeta
 
